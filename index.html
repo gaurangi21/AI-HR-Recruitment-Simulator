@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TalentPulse — AI HR Recruitment Simulator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand"><div class="mark"></div><span>TalentPulse</span></div>
+    <div class="login-sub">AI-powered recruitment simulator</div>
+
+    <div class="role-toggle">
+      <button id="roleAdminBtn" class="active" onclick="setRole('admin')">Admin</button>
+      <button id="roleCandBtn" onclick="setRole('candidate')">Candidate</button>
+    </div>
+
+    <label>Full name</label>
+    <input id="loginName" type="text" placeholder="e.g. Aditi Sharma">
+    <label>Email</label>
+    <input id="loginEmail" type="email" placeholder="you@example.com">
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="••••••••">
+    <button class="btn-primary" onclick="doLogin()">Sign in</button>
+    <div class="login-foot">Demo login — any name/email/password works.</div>
+    <div class="demo-note">This is a self-contained frontend demo. Resume parsing, matching, and interview scoring are simulated in-browser (rule-based), standing in for the OpenAI/Gemini-powered versions in the full spec.</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="sidebar" id="sidebar">
+    <div class="brand"><div class="mark"></div><span>TalentPulse</span></div>
+    <div id="navItems"></div>
+    <div class="sidebar-foot">
+      <div class="who" id="whoName">—</div>
+      <div id="whoRole">—</div>
+      <button class="logout-btn" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <div class="crumb" id="pageCrumb">Overview</div>
+      </div>
+      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙 Dark mode</button>
+    </div>
+
+    <!-- ===================== ADMIN VIEWS ===================== -->
+    <div id="admin-dashboard" class="view">
+      <div class="grid grid-4 section-gap">
+        <div class="card stat"><div class="label">Open jobs</div><div class="num" id="statJobs">0</div><div class="delta up">▲ live</div></div>
+        <div class="card stat"><div class="label">Total candidates</div><div class="num" id="statCands">0</div><div class="delta up">▲ live</div></div>
+        <div class="card stat"><div class="label">Applications</div><div class="num" id="statApps">0</div><div class="delta up">▲ live</div></div>
+        <div class="card stat"><div class="label">Avg. AI match score</div><div class="num" id="statAvgScore">0%</div><div class="delta up">AI-computed</div></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Applications by job</h3>
+          <div class="muted section-gap">Volume per open role</div>
+          <div id="appsByJobChart"></div>
+        </div>
+        <div class="card">
+          <h3>Top ranked candidates</h3>
+          <div class="muted section-gap">By AI match score, across all jobs</div>
+          <table><tbody id="topCandidatesTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-jobs" class="view">
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Post a new job</h3>
+          <div class="muted section-gap">Job description management</div>
+          <label>Job title</label>
+          <input id="jobTitle" type="text" placeholder="e.g. Frontend Engineer">
+          <div class="field-row">
+            <div><label>Department</label><input id="jobDept" type="text" placeholder="e.g. Engineering"></div>
+            <div><label>Experience level</label>
+              <select id="jobLevel"><option>Entry</option><option>Mid</option><option>Senior</option></select>
+            </div>
+          </div>
+          <label>Required skills (comma separated)</label>
+          <textarea id="jobSkills" rows="2" placeholder="React, JavaScript, CSS, REST APIs"></textarea>
+          <button class="btn primary" style="margin-top:14px" onclick="postJob()">Post job</button>
+        </div>
+        <div class="card">
+          <h3>Open roles</h3>
+          <div class="muted section-gap" id="jobCountLabel">0 active</div>
+          <table><thead><tr><th>Title</th><th>Dept</th><th>Level</th><th>Applicants</th></tr></thead><tbody id="jobsTableBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-candidates" class="view">
+      <div class="card">
+        <h3>Candidate list</h3>
+        <div class="muted section-gap">All registered candidates and parsed resume skills</div>
+        <table><thead><tr><th>Candidate</th><th>Skills (parsed)</th><th>Applied jobs</th><th>Status</th></tr></thead><tbody id="candidatesTableBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="admin-matching" class="view">
+      <div class="card section-gap">
+        <h3>AI resume matching</h3>
+        <div class="muted section-gap">Select a job to rank every candidate against it</div>
+        <select id="matchJobSelect" onchange="renderMatching()"></select>
+      </div>
+      <div class="card">
+        <h3>Ranked results</h3>
+        <table><thead><tr><th>Rank</th><th>Candidate</th><th>Match score</th><th>Skill overlap</th><th>Recommendation</th></tr></thead><tbody id="matchingTableBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="admin-interviews" class="view">
+      <div class="card">
+        <h3>Interview results</h3>
+        <div class="muted section-gap">Mock interview scores submitted by candidates</div>
+        <table><thead><tr><th>Candidate</th><th>Job</th><th>Interview score</th><th>AI feedback</th></tr></thead><tbody id="interviewResultsBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="admin-analytics" class="view">
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Candidates by match score</h3>
+          <div class="muted section-gap">Distribution across all applications</div>
+          <div id="scoreDistChart"></div>
+        </div>
+        <div class="card">
+          <h3>Pipeline funnel</h3>
+          <div class="muted section-gap">Candidates at each recruitment stage</div>
+          <div id="funnelChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-settings" class="view">
+      <div class="card" style="max-width:480px">
+        <h3>Settings</h3>
+        <div class="muted section-gap">Workspace preferences (demo only)</div>
+        <label>Company name</label><input type="text" value="TalentPulse Inc.">
+        <label>AI matching sensitivity</label>
+        <select><option>Balanced</option><option>Strict</option><option>Lenient</option></select>
+        <label>Notifications</label>
+        <select><option>Email + in-app</option><option>In-app only</option><option>Off</option></select>
+        <button class="btn primary" style="margin-top:14px" onclick="alert('Settings saved (demo).')">Save changes</button>
+      </div>
+    </div>
+
+    <!-- ===================== CANDIDATE VIEWS ===================== -->
+    <div id="cand-dashboard" class="view">
+      <div class="grid grid-4 section-gap">
+        <div class="card stat"><div class="label">Applications</div><div class="num" id="cStatApps">0</div></div>
+        <div class="card stat"><div class="label">Best match score</div><div class="num" id="cStatBest">—</div></div>
+        <div class="card stat"><div class="label">Skill gaps found</div><div class="num" id="cStatGaps">—</div></div>
+        <div class="card stat"><div class="label">Interview status</div><div class="num" id="cStatInterview">—</div></div>
+      </div>
+      <div class="card">
+        <h3>Recommended for you</h3>
+        <div class="muted section-gap">AI-ranked jobs based on your resume</div>
+        <table><thead><tr><th>Job</th><th>Match</th><th>Missing skills</th><th></th></tr></thead><tbody id="recommendedTableBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="cand-profile" class="view">
+      <div class="card" style="max-width:520px">
+        <h3>Your profile</h3>
+        <label>Full name</label><input id="profName" type="text">
+        <div class="field-row">
+          <div><label>Location</label><input id="profLoc" type="text" placeholder="City, Country"></div>
+          <div><label>Experience (years)</label><input id="profExp" type="text" placeholder="e.g. 2"></div>
+        </div>
+        <label>Career goal</label>
+        <input id="profGoal" type="text" placeholder="e.g. Frontend Developer role">
+        <button class="btn primary" style="margin-top:14px" onclick="saveProfile()">Save profile</button>
+      </div>
+    </div>
+
+    <div id="cand-resume" class="view">
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Upload resume</h3>
+          <div class="muted section-gap">Paste your skills — this stands in for resume/OCR parsing</div>
+          <label>Skills (comma separated)</label>
+          <textarea id="candSkills" rows="3" placeholder="React, Node.js, MongoDB, Git"></textarea>
+          <button class="btn primary" style="margin-top:12px" onclick="submitResume()">Run AI resume analysis</button>
+        </div>
+        <div class="card">
+          <h3>AI resume score</h3>
+          <div id="resumeScoreBox" class="empty">Submit your resume to see your AI score.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="cand-jobs" class="view">
+      <div class="card">
+        <h3>Browse jobs</h3>
+        <div class="muted section-gap">All open roles</div>
+        <table><thead><tr><th>Title</th><th>Dept</th><th>Required skills</th><th></th></tr></thead><tbody id="browseJobsBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="cand-applications" class="view">
+      <div class="card">
+        <h3>Your applications</h3>
+        <table><thead><tr><th>Job</th><th>Applied on</th><th>Match score</th><th>Status</th></tr></thead><tbody id="myApplicationsBody"></tbody></table>
+      </div>
+    </div>
+
+    <div id="cand-skillgap" class="view">
+      <div class="card section-gap">
+        <h3>AI skill gap analysis</h3>
+        <div class="muted section-gap">Choose a target job to compare against your parsed skills</div>
+        <select id="gapJobSelect" onchange="renderSkillGap()"></select>
+      </div>
+      <div class="card grid grid-2">
+        <div><h3 style="font-size:13.5px;margin-bottom:10px">Skills you have</h3><div id="skillsHave"></div></div>
+        <div><h3 style="font-size:13.5px;margin-bottom:10px">Skills to learn</h3><div id="skillsMissing"></div></div>
+      </div>
+      <div class="card">
+        <h3>Suggested learning roadmap</h3>
+        <div class="muted section-gap">Generated from your skill gaps</div>
+        <div id="roadmapList"></div>
+      </div>
+    </div>
+
+    <div id="cand-mock" class="view">
+      <div class="card section-gap">
+        <h3>AI mock interview</h3>
+        <div class="muted section-gap" id="mockJobLabel">Pick a job in "Skill Gap" first, or answer a general question below</div>
+        <div id="mockQuestionBox" class="card" style="background:var(--surface-2);margin-bottom:12px">Loading question…</div>
+        <label>Your answer</label>
+        <textarea id="mockAnswer" rows="4" placeholder="Type your answer..."></textarea>
+        <button class="btn primary" style="margin-top:10px" onclick="evaluateMockAnswer()">Submit answer for AI evaluation</button>
+        <button class="btn ghost sm" style="margin-top:10px;margin-left:8px" onclick="loadMockQuestion()">New question</button>
+      </div>
+      <div class="card" id="mockFeedbackCard" style="display:none">
+        <h3>AI feedback</h3>
+        <div id="mockFeedbackBox"></div>
+      </div>
+    </div>
+
+    <div id="cand-chatbot" class="view">
+      <div class="card" style="max-width:560px">
+        <h3>HR chatbot</h3>
+        <div class="muted section-gap">Ask about application status, interview tips, or platform features</div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="chat-input-row">
+          <input id="chatInput" type="text" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn primary sm" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cand-settings" class="view">
+      <div class="card" style="max-width:480px">
+        <h3>Settings</h3>
+        <label>Email notifications</label>
+        <select><option>All updates</option><option>Important only</option><option>Off</option></select>
+        <label>Profile visibility</label>
+        <select><option>Visible to recruiters</option><option>Hidden</option></select>
+        <button class="btn primary" style="margin-top:14px" onclick="alert('Settings saved (demo).')">Save changes</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
